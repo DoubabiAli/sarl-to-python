@@ -1,0 +1,26 @@
+// CIBLE FINALE des 4 membres (Level 1). Vérifiez la syntaxe exacte sur https://www.sarl.io avant de la figer.
+// Tant que tout n'est pas implémenté, ce fichier produit des erreurs « pas encore implémenté » : c'est normal.
+agent ParentAgent {
+
+    uses Lifecycle
+
+    on Initialize {
+        info("Parent started")
+        spawn(typeof(ChildAgent), "Max", 20)
+    }
+
+    on Destroy {
+        info("Parent stopped")
+    }
+}
+
+agent ChildAgent {
+
+    on Initialize {
+        info("Child started")
+    }
+
+    on Destroy {
+        info("Child stopped")
+    }
+}

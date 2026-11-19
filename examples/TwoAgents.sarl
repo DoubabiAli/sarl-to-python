@@ -1,0 +1,4 @@
+// Cible du Membre 1 : plusieurs agents dans un fichier
+agent ParentAgent {}
+
+agent ChildAgent {}

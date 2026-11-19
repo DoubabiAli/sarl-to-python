@@ -1,0 +1,11 @@
+generated/
+target/
+*.iml
+.vscode/
+__pycache__/
+*.pyc
+.DS_Store
+.idea/
+out/
+*.log
+Thumbs.db

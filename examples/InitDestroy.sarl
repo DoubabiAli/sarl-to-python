@@ -1,0 +1,11 @@
+// Objectif de la semaine : on Initialize et on Destroy (Membres 3 et 4)
+agent StudentAgent {
+
+    on Initialize {
+        info("Agent started")
+    }
+
+    on Destroy {
+        info("Agent stopped")
+    }
+}
