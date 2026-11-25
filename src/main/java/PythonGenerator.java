@@ -68,8 +68,11 @@ public final class PythonGenerator {
 
     /** Doit écrire « def on_initialize(self, occurrence): » puis le corps (voir generateBlock). */
     private void generateInitialize(SyntaxTree.InitializeNode node) {
-        diag.report(Diagnostics.Code.UNSUPPORTED_FEATURE, node.line(), node.column(),
-                "génération de on Initialize non implémentée [TODO Membre 3]");
+        // IA : écrit avec l'aide de Claude, relu et expliqué par Ali (Membre 3)
+        line("def on_initialize(self, occurrence):");
+        indent++;
+        generateBlock(node.body()); // corps vide -> « pass »
+        indent--;
     }
 
     // =====================================================================================

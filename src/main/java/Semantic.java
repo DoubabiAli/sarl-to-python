@@ -34,12 +34,31 @@ public final class Semantic {
     private void checkAgent(SyntaxTree.AgentNode agent, SymbolTable global) {
         // MEMBRE 3 : au plus UN handler on Initialize par agent (sinon DUPLICATE_HANDLER)
         // MEMBRE 4 : au plus UN handler on Destroy par agent (sinon DUPLICATE_HANDLER)
+        checkInitialize(agent);
         checkDestroy(agent);
         // MEMBRE 2 : dans chaque corps de handler, spawn(typeof(X)) doit viser un agent déclaré
         //            (sinon UNKNOWN_AGENT_TYPE) : utiliser global.get("X")
     }
 
 
+
+    // member 3
+
+    // IA : écrit avec l'aide de Claude, relu et expliqué par Ali (Membre 3)
+    private void checkInitialize(SyntaxTree.AgentNode agent) {
+        // Au plus UN on Initialize par agent : on signale à partir du deuxième.
+        boolean found = false;
+        for (SyntaxTree.Node member : agent.members()) {
+            if (member instanceof SyntaxTree.InitializeNode init) {
+                if (found) {
+                    diag.report(Diagnostics.Code.DUPLICATE_HANDLER, init.line(), init.column(),
+                            "on Initialize est déclaré plusieurs fois dans l'agent " + agent.name());
+                } else {
+                    found = true;
+                }
+            }
+        }
+    }
 
     // member 4
 
