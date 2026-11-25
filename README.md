@@ -142,7 +142,15 @@ Objectif de la semaine : `examples/InitDestroy.sarl` se transpile sans erreur, e
 `InitializeTest` et `DestroyTest` passent. `examples/Integration.sarl` est la cible finale
 (avec `uses` et `spawn`) : il échoue pour l'instant, c'est normal.
 
-L'exécution du code Python n'est **pas** dans le projet : on s'arrête au texte Python généré.
+### Décisions du groupe
+
+1. **Classe de base : `class A(Agent):`.** La fiche du Membre 1 l'impose. Le fichier généré commence
+   par `from sarl_runtime import Agent`. Le stub de `Agent` (attributs `id`, `state`, `runtime`) est
+   dans `runtime/sarl_runtime.py`.
+2. **Tests du runtime.** Les tests Java vérifient le **texte généré**. Le comportement exécuté
+   (démarrage, paramètres dans l'ordre, spawner, un seul appel du handler) est testé en Python dans
+   `runtime/` : `python3 -m unittest discover -s runtime`. Le runtime complet (spawn, stop) reste
+   à la charge des Membres 2 et 4.
 
 ## 6. Par où commencer ? L'ordre de lecture
 

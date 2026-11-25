@@ -1,4 +1,3 @@
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import static org.junit.jupiter.api.Assertions.*;
 /**
@@ -45,7 +44,7 @@ class DestroyTest {
 
         assertTrue(r.success());
         assertTrue(r.python().contains(
-                "class A:\n    pass"
+                "class A(Agent):\n    pass"
         ));
     }
 
@@ -110,8 +109,6 @@ class DestroyTest {
     }
 
     // TEST 9: Handler order
-    // Enable after Member 3's Initialize implementation is merged.
-    @Disabled("Waiting for on Initialize implementation")
     @Test
     void initializeAndDestroyKeepTheirOrder() {
         Transpiler.Result r = Transpiler.transpile(

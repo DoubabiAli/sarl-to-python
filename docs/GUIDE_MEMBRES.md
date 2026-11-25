@@ -169,6 +169,10 @@ handler ; handler gardé ou deux handlers -> diagnostic. (Test de `killMe` : plu
 
 ## 7. Points à décider ensemble avant de coder
 
+> **Décisions prises** : (1) on génère `class A(Agent):` avec `from sarl_runtime import Agent` en tête ;
+> (2) le texte généré est testé en Java, le comportement exécuté en Python dans `runtime/`
+> (option (a) + stub de l'option (b)). Les détails d'origine restent ci-dessous.
+
 1. **`class A:` ou `class A(Agent):` ?** La liste de tâches du Membre 1 écrit `class StudentAgent(Agent):`.
    Aujourd'hui le générateur écrit `class A:`. Si on choisit `(Agent)`, il faut aussi une ligne
    d'import en tête (`from sarl_runtime import Agent`) et modifier `AgentTest`.

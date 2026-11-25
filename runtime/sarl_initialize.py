@@ -6,13 +6,7 @@ Simplification Level 1 (documentée) : tout est SYNCHRONE. start() appelle le ha
 directement, dans le même thread, et ne rend la main qu'une fois on_initialize terminé.
 Il n'y a ni file d'attente d'événements ni thread par agent.
 """
-
-
-class AgentState:
-    CREATED = "CREATED"
-    RUNNING = "RUNNING"
-    STOPPING = "STOPPING"
-    STOPPED = "STOPPED"
+from sarl_runtime import AgentState
 
 
 class Occurrence:
