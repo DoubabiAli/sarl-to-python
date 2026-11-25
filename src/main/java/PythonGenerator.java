@@ -19,6 +19,9 @@ public final class PythonGenerator {
 
     public String generate(SyntaxTree.ProgramNode program) {
         line("# Genere par le transpileur SARL -> Python. Ne pas modifier a la main.");
+        line("from sarl_runtime import Agent");
+        line("");
+        line("");
         for (SyntaxTree.AgentNode agent : program.agents()) {
             generateAgent(agent);
             line("");
@@ -32,7 +35,7 @@ public final class PythonGenerator {
     // =====================================================================================
 
     private void generateAgent(SyntaxTree.AgentNode agent) {
-        line("class " + agent.name() + ":");
+        line("class " + agent.name() + "(Agent):");
         indent++;
         int bodyStart = out.length();
         for (SyntaxTree.Node member : agent.members()) {

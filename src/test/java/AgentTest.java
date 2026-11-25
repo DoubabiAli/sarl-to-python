@@ -14,15 +14,22 @@ class AgentTest {
     void emptyAgentBecomesAClassWithPass() {
         Transpiler.Result r = Transpiler.transpile("agent StudentAgent {}");
         assertTrue(r.success());
-        assertTrue(r.python().contains("class StudentAgent:\n    pass\n"));
+        assertTrue(r.python().contains("class StudentAgent(Agent):\n    pass\n"));
+    }
+
+    @Test
+    void generatedFileImportsTheAgentBaseClass() {
+        Transpiler.Result r = Transpiler.transpile("agent A {}");
+        assertTrue(r.success());
+        assertTrue(r.python().contains("from sarl_runtime import Agent\n"));
     }
 
     @Test
     void severalAgentsGiveDistinctClasses() {
         Transpiler.Result r = Transpiler.transpile("agent A {}\nagent B {}");
         assertTrue(r.success());
-        assertTrue(r.python().contains("class A:"));
-        assertTrue(r.python().contains("class B:"));
+        assertTrue(r.python().contains("class A(Agent):"));
+        assertTrue(r.python().contains("class B(Agent):"));
     }
 
     @Test
