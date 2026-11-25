@@ -144,14 +144,114 @@ public final class Parser {
     // =====================================================================================
 
     /** Le token « on » vient d'être consommé ; le token courant est DESTROY. */
-    private SyntaxTree.Node parseDestroy(Token on) {
-        throw notImplemented("Membre 4", "on Destroy { ... }");
+
+
+// Parse a Boolean literal inside a guard.
+
+    private SyntaxTree.Expression parseBooleanExpression() {
+
+        if (check(Tag.TRUE)) {
+            Token token = advance();
+            return new SyntaxTree.BooleanLiteral(
+                    true,
+                    token.line(),
+                    token.column()
+            );
+        }
+
+        if (check(Tag.FALSE)) {
+            Token token = advance();
+            return new SyntaxTree.BooleanLiteral(
+                    false,
+                    token.line(),
+                    token.column()
+            );
+        }
+
+        throw error(
+                Diagnostics.Code.SYNTAX_ERROR,
+                "Expected a Boolean expression"
+        );
     }
 
-    /** Le token courant est KILLME. Doit retourner un KillMeStatement. */
-    private SyntaxTree.Statement parseKillMe() {
-        throw notImplemented("Membre 4", "killMe");
+
+
+    private SyntaxTree.Node parseDestroy(Token on) {
+
+        // The token "on" has already been consumed.
+        // The current token is DESTROY.
+        advance();
+
+        // No guard by default
+        SyntaxTree.Expression guard = null;
+
+        // Optional guard: [condition]
+        if (check(Tag.LBRACKET)) {
+
+            advance(); // Consume [
+
+            // Check for an empty guard []
+            if (check(Tag.RBRACKET)) {
+                throw error(
+                        Diagnostics.Code.SYNTAX_ERROR,
+                        "The guard cannot be empty"
+                );
+            }
+
+            // Read the condition inside [ ... ]
+            guard = parseBooleanExpression();
+
+            // Require the closing ]
+            if (!check(Tag.RBRACKET)) {
+                throw error(
+                        Diagnostics.Code.SYNTAX_ERROR,
+                        "Missing ] after the guard"
+                );
+            }
+
+            advance(); // Consume ]
+        }
+
+        // The handler body must begin with {
+        if (!check(Tag.LBRACE)) {
+            throw error(
+                    Diagnostics.Code.SYNTAX_ERROR,
+                    "Missing { after on Destroy"
+            );
+        }
+
+        // Read the instructions between { and }
+        List<SyntaxTree.Statement> body = parseBlock();
+
+        // Construct the AST node
+        return new SyntaxTree.DestroyNode(
+                guard,
+                body,
+                on.line(),
+                on.column()
+        );
     }
+
+
+    /** Le token courant est KILLME. Doit retourner un KillMeStatement. */
+
+    private SyntaxTree.Statement parseKillMe() {
+
+        // Consume the killMe keyword
+        Token token = advance();
+
+        // Optional semicolon
+        if (check(Tag.SEMICOLON)) {
+            advance();
+        }
+
+        // Create the AST node
+        return new SyntaxTree.KillMeStatement(
+                token.line(),
+                token.column()
+        );
+    }
+
 
     // =====================================================================================
     //  COMMUN : blocs, instructions, expressions

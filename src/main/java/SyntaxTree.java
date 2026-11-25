@@ -19,6 +19,13 @@ public final class SyntaxTree {
     /** Une valeur. */
     public interface Expression extends Node { }
 
+    //  Represents a Boolean literal used in a guard.
+    public record BooleanLiteral(
+            boolean value,
+            int line,
+            int column
+    ) implements Expression { }
+
     // ----- structure du fichier (Membre 1)
     public record ProgramNode(List<AgentNode> agents, int line, int column) implements Node { }
 
@@ -31,7 +38,7 @@ public final class SyntaxTree {
     /** on Initialize { ... }  (Membre 3) */
     public record InitializeNode(List<Statement> body, int line, int column) implements Node { }
     /** on Destroy { ... }  (Membre 4) */
-    public record DestroyNode(List<Statement> body, int line, int column) implements Node { }
+    public record DestroyNode(  Expression guard,List<Statement> body, int line, int column) implements Node { }
 
     // ----- instructions
     /** info("...")  (commun) */
@@ -40,6 +47,7 @@ public final class SyntaxTree {
     public record SpawnStatement(String agentType, List<Expression> arguments, int line, int column)
             implements Statement { }
     /** killMe  (Membre 4) */
+
     public record KillMeStatement(int line, int column) implements Statement { }
 
     // ----- expressions

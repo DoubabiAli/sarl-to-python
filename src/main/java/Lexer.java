@@ -5,10 +5,21 @@ import java.util.Map;
 public final class Lexer {
 
     /** Table des mots réservés. */
-    private static final Map<String, Tag> KEYWORDS = Map.of(
-            "agent", Tag.AGENT, "uses", Tag.USES, "on", Tag.ON,
-            "Initialize", Tag.INITIALIZE, "Destroy", Tag.DESTROY,
-            "spawn", Tag.SPAWN, "typeof", Tag.TYPEOF, "killMe", Tag.KILLME, "info", Tag.INFO);
+
+    private static final Map<String, Tag> KEYWORDS = Map.ofEntries(
+            Map.entry("agent", Tag.AGENT),
+            Map.entry("uses", Tag.USES),
+            Map.entry("on", Tag.ON),
+            Map.entry("Initialize", Tag.INITIALIZE),
+            Map.entry("Destroy", Tag.DESTROY),
+            Map.entry("true", Tag.TRUE),
+            Map.entry("false", Tag.FALSE),
+            Map.entry("spawn", Tag.SPAWN),
+            Map.entry("typeof", Tag.TYPEOF),
+            Map.entry("killMe", Tag.KILLME),
+            Map.entry("info", Tag.INFO)
+    );
+
 
     /** Valeur spéciale : une erreur a déjà été signalée et le pointeur a déjà avancé. */
     private static final Token SKIPPED = new Token(Tag.EOF, "", 0, 0);
