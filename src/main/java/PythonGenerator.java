@@ -76,16 +76,57 @@ public final class PythonGenerator {
     //  MEMBRE 4 : def on_destroy(self, occurrence):  et  killMe
     // =====================================================================================
 
+
     private void generateDestroy(SyntaxTree.DestroyNode node) {
-        diag.report(Diagnostics.Code.UNSUPPORTED_FEATURE, node.line(), node.column(),
-                "génération de on Destroy non implémentée [TODO Membre 4]");
+
+        // including optional Boolean guards.
+        // Reject guard expressions we cannot translate yet.
+        if (node.guard() != null
+                && !(node.guard() instanceof SyntaxTree.BooleanLiteral)) {
+
+            diag.report(
+                    Diagnostics.Code.UNSUPPORTED_FEATURE,
+                    node.guard().line(),
+                    node.guard().column(),
+                    "Unsupported Destroy guard expression"
+            );
+            return;
+        }
+
+        // Define the Python method
+        line("def on_destroy(self, occurrence):");
+        indent++;
+
+        // Case 1: No guard
+        if (node.guard() == null) {
+            generateBlock(node.body());
+        }
+
+        // Case 2: Guard [true] or [false]
+        else if (node.guard() instanceof SyntaxTree.BooleanLiteral guard) {
+
+            String condition = guard.value() ? "True" : "False";
+
+            line("if " + condition + ":");
+            indent++;
+
+            generateBlock(node.body());
+
+            indent--;
+        }
+
+        indent--;
     }
 
+
     /** killMe -> self.runtime.stop(self) */
+
     private void generateKillMe(SyntaxTree.KillMeStatement statement) {
-        diag.report(Diagnostics.Code.UNSUPPORTED_FEATURE, statement.line(), statement.column(),
-                "génération de killMe non implémentée [TODO Membre 4]");
+
+        // Translate SARL killMe to the Python agent stop API.
+        line("self.runtime.stop(self)");
     }
+
 
     // =====================================================================================
     //  MEMBRE 2 : spawn -> self.runtime.spawn(ChildAgent, *args, spawner=self)

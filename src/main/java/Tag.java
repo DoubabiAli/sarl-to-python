@@ -12,5 +12,8 @@ public enum Tag {
     // ponctuation
     LBRACE, RBRACE, LPAREN, RPAREN, LBRACKET, RBRACKET, COMMA, SEMICOLON,
 
+    //boolean
+    TRUE, FALSE,
+
     EOF
 }
