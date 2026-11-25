@@ -135,7 +135,15 @@ public final class Parser {
      * lire le corps avec parseBlock(), construire le nœud avec la position de « on ».
      */
     private SyntaxTree.Node parseInitialize(Token on) {
-        throw notImplemented("Membre 3", "on Initialize { ... }");
+        // IA : écrit avec l'aide de Claude, relu et expliqué par Ali (Membre 3)
+        advance(); // consomme INITIALIZE
+        if (check(Tag.LBRACKET)) {
+            // Level 1 : pas de garde « [condition] » sur on Initialize
+            throw error(Diagnostics.Code.UNSUPPORTED_FEATURE,
+                    "les handlers gardés [...] ne sont pas supportés");
+        }
+        List<SyntaxTree.Statement> body = parseBlock();
+        return new SyntaxTree.InitializeNode(body, on.line(), on.column());
     }
 
     // =====================================================================================
