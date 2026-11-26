@@ -191,7 +191,7 @@ On réutilise `SYNTAX_ERROR`, `MISSING_BRACE`, `UNSUPPORTED_FEATURE`, `DUPLICATE
 
 | Sujet | Décision |
 |---|---|
-| Classe | `class A(Agent):` avec `from sarl_runtime import Agent` en tête (**proposée** par la PR `fix-decisions-groupe` : à confirmer par le groupe avant la PR 0 ; c'est alors la seule ligne `import` du Python généré) |
+| Classe | `class A(Agent):` avec `from sarl_runtime import Agent` en tête (décision du groupe, déjà fusionnée dans `main` par la PR #3 ; c'est la seule ligne `import` du Python généré) |
 | Champs | **dans `__init__`**, jamais au niveau de la classe : sinon une liste serait partagée entre tous les agents. `def __init__(self, runtime=None):` puis `super().__init__(runtime)` puis `self.x = ...`. Un agent sans champ n'a pas de `__init__`. `var x : int` sans valeur reçoit `0` ; `double` : `0.0` ; `boolean` : `False` ; les autres types : `None` |
 | Noms | champ → `self.x` ; paramètre ou variable locale → `x` ; méthode de l'agent → `self.f(...)` ; un nom qui est un mot réservé Python (`from`, `in`, `is`, `pass`, `lambda`...) reçoit un `_` à la fin (`from_`) |
 | Opérateurs | `&&` → `and`, `\|\|` → `or`, `!` → `not`, `true` → `True` |
