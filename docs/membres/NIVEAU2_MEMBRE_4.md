@@ -28,7 +28,7 @@ class A(Agent):
         m = {"a": 1, "b": 2}
 ```
 
-(L'`import` ne produit **aucune** ligne Python : les dictionnaires sont natifs.)
+(L'`import` SARL ne produit aucune ligne Python : les dictionnaires sont natifs. La seule ligne `import` du fichier généré est `from sarl_runtime import Agent`.)
 
 Temps estimé : 4 à 5 h, lecture comprise.
 
@@ -39,7 +39,7 @@ Temps estimé : 4 à 5 h, lecture comprise.
 
 ## Étape 0 : préparer ton poste (15 min)
 
-1. La PR 0 doit être fusionnée. `git checkout main`, `git pull`.
+1. La PR 0 doit être fusionnée (0a à 0d, contrat §10). Ta part est la **PR 0b** : `Tag.java` et `Lexer.java` (mots réservés, symboles, un `getOperator()` en diagramme de transition pour `==`, `!=`, `<=`, `>=`, `&&`, `||`, `->`) et le script `runtime/check_generated.py`, environ 1 h 30 à 2 h. `git checkout main`, `git pull`.
 2. `mvn test` : tout est vert (le terminal doit utiliser le JDK 25).
 3. `git checkout -b membre4-maps-imports`.
 
@@ -63,7 +63,7 @@ Pour vérifier que tu as compris, réponds à voix haute :
 |---|---|---|
 | 1 | `Parser.java` | `parseMapRest`, `parseImport` |
 | 2 | `Semantic.java` | `typeOfMapCall`, `typeOfMapLiteral`, `typeOfNew` (cas `HashMap`/`TreeMap`), `checkImport` |
-| 3 | `PythonGenerator.java` | `generateMapLiteral`, `generateMapCall`, `generateNew` (cas `HashMap`/`TreeMap`) |
+| 3 | `PythonGenerator.java` | `generateMapLiteral`, `generateMapCall`, `generateMapStatement`, `generateNew` (cas `HashMap`/`TreeMap`) |
 | 4 | `MapImportTest.java` | les tests de l'étape 6 |
 
 Hors de ta tâche : `List` et `Set` (Membre 3), `new` côté Parser (Membre 3 : il l'écrit pour toutes les
@@ -122,7 +122,7 @@ après un `agent` est une erreur de syntaxe (le Parser le voit comme une déclar
 | `TreeMap` seulement : `firstKey`, `lastKey`, `headMap`... | | | | `UNSUPPORTED_FEATURE`, message « dépend de l'ordre trié » |
 
 - `put` est de type `void` : on ne l'utilise que comme instruction. `var x = m.put("a", 1)` donne
-  `TYPE_MISMATCH`. Pourquoi ? En SARL (comme en Java) `put` **renvoie l'ancienne valeur** ; `m[k] = v` en
+  `UNSUPPORTED_FEATURE` (construction valide en SARL, que notre sous-ensemble ne traduit pas ; `requireValue` du Membre 1). Pourquoi ? En SARL (comme en Java) `put` **renvoie l'ancienne valeur** ; `m[k] = v` en
   Python ne renvoie rien. Plutôt que traduire faux, on refuse de l'utiliser comme valeur.
 - `get` d'une clé absente : en SARL `null`, en Python `None` (`m.get(k)`). C'est fidèle ; documente-le.
 
@@ -137,7 +137,7 @@ est refusée. Écris dans les limites : « TreeMap : seul put/get/size/containsK
   sinon `UNSUPPORTED_FEATURE`.
 - Une clé de type collection (`List`, `Set`, `Map`) est refusée (`UNSUPPORTED_FEATURE`) : Python ne sait pas
   hacher une liste.
-- `#{k1 -> v1, k2 -> v2}` → `Map<K,V>` où `K` est le type de la première clé et `V` celui de la première valeur ;
+- `#{k1 -> v1, k2 -> v2}` → `ImmutableMap<K,V>` (littéral immuable : `put` refusé, `UNSUPPORTED_FEATURE`) où `K` est le type de la première clé et `V` celui de la première valeur ;
   les autres doivent être compatibles (`Types.isAssignable`), sinon `TYPE_MISMATCH`.
 - Les arguments de `put`, `get`, `containsKey` doivent être compatibles avec `K` et `V` : `TYPE_MISMATCH`.
   Mauvais nombre d'arguments : `WRONG_ARGUMENT_COUNT`.
@@ -159,10 +159,10 @@ est refusée. Écris dans les limites : « TreeMap : seul put/get/size/containsK
 | `m.size()` | `len(m)` |
 | `m.containsKey(k)` | `(k in m)` |
 
-`generateMapCall(MemberCall call)` est appelée par le Membre 2 quand le receveur est une map. Tu écris le
+`generateMapCall(MemberCall call)` (valeurs : `get`, `size`, `containsKey`) et `generateMapStatement(MemberCall call)` (l'instruction `put`, qui écrit sa ligne avec `line(...)`) sont appelées par le Membre 2 quand le receveur est une map. Tu écris le
 receveur et les arguments avec `expression(...)`. **Ne réécris pas** la traduction des expressions.
-Comme `put` est de type `void`, son texte `m[k] = v` n'apparaît qu'en position d'instruction (le
-Semantic l'a garanti) : c'est pour cela que ça marche.
+`put` est généré par **`generateMapStatement`**, qui écrit directement la ligne `m[k] = v` : ce n'est pas une
+expression Python, donc `generateMapCall` ne le traite jamais (il ne gère que `get`, `size` et `containsKey`).
 
 **Les imports ne produisent aucune ligne Python** : il n'y a donc rien à écrire pour eux dans le Générateur
 (ça fait partie de la décision : « émettre uniquement les imports Python correspondant à des
@@ -179,9 +179,11 @@ dans le Python.
 | type de valeur incompatible | `m.put("a", "x")` sur `Map<String, Integer>` | échec, `TYPE_MISMATCH` |
 | type de clé incompatible | `m.put(1, 1)` sur `Map<String, Integer>` | échec, `TYPE_MISMATCH` |
 | opération inconnue | `m.remove("a")` | échec, `UNSUPPORTED_FEATURE` |
-| `put` utilisé comme valeur | `var x = m.put("a", 1)` | échec, `TYPE_MISMATCH` |
+| `put` utilisé comme valeur | `var x = m.put("a", 1)` | échec, `UNSUPPORTED_FEATURE` |
+| `put` sur un littéral | `var m = #{"a" -> 1} m.put("b", 2)` | échec, `UNSUPPORTED_FEATURE` (littéral immuable) |
+| types boîtes | `var m = new HashMap<String, Integer>() m.put("Max", 20)` | succès, `m["Max"] = 20` |
 | clé de type collection | `new HashMap<List<Integer>, Integer>()` | échec, `UNSUPPORTED_FEATURE` |
-| import autorisé | `import java.util.Map` avant l'agent | succès, **aucune** ligne `import` dans le Python |
+| import autorisé | `import java.util.Map` avant l'agent | succès ; aucune ligne d'import venant de `java` dans le Python (la seule ligne `import` est `from sarl_runtime import Agent`) |
 | import inconnu | `import java.io.File` | échec, `UNSUPPORTED_FEATURE` |
 | `TreeMap` restreinte | `var t = new TreeMap<String, Integer>() t.put("b", 1)` | succès, `t = {}` puis `t["b"] = 1` |
 | `TreeMap` dépendante de l'ordre | `t.firstKey()` | échec, `UNSUPPORTED_FEATURE` (« dépend de l'ordre trié ») |
@@ -200,7 +202,7 @@ des opérations et la décision `TreeMap`.
 
 - [ ] `parseMapRest`, `parseImport` écrits
 - [ ] `typeOfMapCall`, `typeOfMapLiteral`, `typeOfNew` (maps), `checkImport` écrits ; matrice documentée
-- [ ] `generateMapLiteral`, `generateMapCall`, `generateNew` (maps) écrits
+- [ ] `generateMapLiteral`, `generateMapCall`, `generateMapStatement`, `generateNew` (maps) écrits
 - [ ] `TreeMap` : opérations dépendantes de l'ordre refusées, limites écrites
 - [ ] `put` refusé comme valeur ; imports hors liste blanche refusés
 - [ ] les tests de `MapImportTest` verts ; `mvn test` entièrement vert

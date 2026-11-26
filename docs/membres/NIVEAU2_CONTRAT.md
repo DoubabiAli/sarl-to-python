@@ -15,7 +15,7 @@ méthodes**.
 
 | Membre | Mission | Fiche |
 |---|---|---|
-| 1 | `var` / `val`, affectations, types, portées, méthodes `def`, **écrit la PR 0** | `NIVEAU2_MEMBRE_1.md` |
+| 1 | `var` / `val`, affectations, types, portées, méthodes `def`, **coordonne la PR 0** | `NIVEAU2_MEMBRE_1.md` |
 | 2 | `parseExpression()` unique, opérateurs, appels, `return`, typage des expressions | `NIVEAU2_MEMBRE_2.md` |
 | 3 | `if` / `else` / `while`, `List` et `Set` | `NIVEAU2_MEMBRE_3.md` |
 | 4 | `HashMap`, `TreeMap`, imports | `NIVEAU2_MEMBRE_4.md` |
@@ -93,10 +93,22 @@ Chaque nœud a `line` et `column`. Les autres membres **n'ajoutent pas de nœud*
 
 ## 5. Les types, les symboles et `TypeInfo` : Membre 1
 
-- Un type est un `TypeRef`. Règles de compatibilité : même type ; `int` est accepté là où `double` est
-  attendu (pas l'inverse) ; `ArrayList<T>` est accepté comme `List<T>`, `HashSet<T>` comme `Set<T>`,
-  `HashMap<K,V>` et `TreeMap<K,V>` comme `Map<K,V>`. Le type spécial `void` n'a pas de valeur : l'utiliser
-  comme valeur donne `TYPE_MISMATCH`.
+- Un type est un `TypeRef`. Règles de compatibilité, **toutes dans `Types.isAssignable`** (les autres
+  membres l'appellent, personne ne les réécrit) :
+  - même type ; `int` est accepté là où `double` est attendu (pas l'inverse) ;
+  - **types boîtes** : `int` ≡ `Integer`, `double` ≡ `Double`, `boolean` ≡ `Boolean` (sinon
+    `ages.put("Max", 20)` sur une `Map<String, Integer>` serait refusé) ; `Types.unbox(type)` les normalise ;
+  - `ArrayList<T>` est accepté comme `List<T>`, `HashSet<T>` comme `Set<T>`, `HashMap<K,V>` et
+    `TreeMap<K,V>` comme `Map<K,V>` ;
+  - **les littéraux sont immuables en SARL** : `#[..]`, `#{..}` et `#{k -> v}` ont pour type
+    `ImmutableList<T>`, `ImmutableSet<T>`, `ImmutableMap<K,V>` (noms internes). Ils se lisent comme une
+    `List` / `Set` / `Map` (`get`, `size`, `contains`, `containsKey`) mais `add` et `put` sont refusés
+    (`UNSUPPORTED_FEATURE`, « littéral immuable »), et on ne les affecte pas à un type `List` / `Set` /
+    `Map` déclaré (on perdrait l'information). Pour une collection modifiable : `new ArrayList<T>()` ;
+  - le type spécial `void` n'a pas de valeur : l'utiliser comme valeur (opérande, argument,
+    `var b = l.add(1)`, `return`) donne `UNSUPPORTED_FEATURE` (« valeur de retour de add/put non
+    supportée » : SARL l'autorise, pas notre sous-ensemble). `Semantic.requireValue(type, nœud)` fait cette
+    vérification ; tout le monde l'appelle quand une valeur est attendue.
 - `var x = 0` : le type est celui de l'expression (`int`). Si on ne peut pas le déduire :
   `UNSUPPORTED_FEATURE` (« type non déductible »).
 - `SymbolTable.Symbol` reçoit trois champs : `type` (`TypeRef`), `mutable` (`boolean`),
@@ -104,6 +116,12 @@ Chaque nœud a `line` et `column`. Les autres membres **n'ajoutent pas de nœud*
   `SymbolTable` reçoit `getLocal(nom)` : cherche seulement dans la portée courante (pour les doublons).
   Les genres de symboles (`kind`) : `"agent"`, `"field"`, `"local"`, `"param"`, `"method"`.
 - **Pas de seconde table de symboles.** Tout le monde utilise `SymbolTable`.
+- **Portées.** Python n'a qu'**une** portée par méthode (un `if` ou un `while` n'en crée pas). Une variable
+  locale ne peut donc pas porter le même nom qu'un paramètre ou qu'une autre variable locale déjà visible
+  (portée englobante) : `DUPLICATE_DECLARATION`. Un local peut masquer un **champ** (`x` contre `self.x`).
+- **Retour.** Une méthode qui déclare un type de retour doit finir par `return valeur` sur **tous** ses
+  chemins (`Semantic.alwaysReturns(corps)`), sinon `UNSUPPORTED_FEATURE` (« écrire return explicitement » :
+  en SARL la dernière expression peut servir de valeur, pas chez nous).
 - **`TypeInfo`** (nouveau fichier) : le Semantic y **note** ce qu'il a compris, le Générateur le **lit**.
   Il contient deux dictionnaires par identité de nœud : le type de chaque expression, et le genre de
   chaque nom (`"field"` ou `"local"`, ou `"method"` pour un appel). Sans lui, le Générateur ne saurait pas
@@ -139,7 +157,7 @@ une portée, appelle `checkStatement` sur chaque instruction, puis la ferme. `ch
 
 | Méthode | Propriétaire |
 |---|---|
-| `declareMembers(agent, portée)`, `checkMethod(MethodDecl, portée)` (met `currentReturnType`), `checkVarDecl`, `checkAssign`, `resolveName(VariableRef, portée)` | M1 |
+| `declareMembers(agent, portée)`, `checkMethod(MethodDecl, portée)` (met `currentReturnType`), `checkVarDecl`, `checkAssign`, `resolveName(VariableRef, portée)`, `requireValue(type, nœud)`, `alwaysReturns(corps)` | M1 |
 | `typeOf(Expression, portée)` (note le résultat dans `TypeInfo`), `checkExprStatement`, `checkReturn`, `checkCall` | M2 |
 | `checkIf`, `checkWhile`, `typeOfListSetCall(MemberCall, TypeRef, portée)`, `typeOfNew(NewObject, portée)` pour `ArrayList`/`HashSet`, `typeOfCollectionLiteral` | M3 |
 | `typeOfMapCall(MemberCall, TypeRef, portée)`, `typeOfMapLiteral`, `checkImport` | M4 |
@@ -154,11 +172,13 @@ noms) pour que le Membre 1 puisse déjà tester.
 |---|---|
 | `generateConstructor(agent)` (écrit `__init__`), `generateMethod`, `generateVarDecl`, `generateAssign`, `pyName(String)` | M1 |
 | `expression(...)` (tous les opérateurs et appels), `generateExprStatement`, `generateReturn`, `generateMemberCall` | M2 |
-| `generateIf`, `generateWhile`, `generateListLiteral`, `generateSetLiteral`, `generateNew` (pour `ArrayList`/`HashSet`), `generateListSetCall` | M3 |
-| `generateMapLiteral`, `generateMapCall`, `generateNew` (pour `HashMap`/`TreeMap`, via un `switch` sur le nom) | M4 |
+| `generateIf`, `generateWhile`, `generateListLiteral`, `generateSetLiteral`, `generateNew` (pour `ArrayList`/`HashSet`), `generateListSetCall` (valeurs : `get`, `size`, `contains`), `generateListSetStatement` (`add`) | M3 |
+| `generateMapLiteral`, `generateMapCall` (valeurs : `get`, `size`, `containsKey`), `generateMapStatement` (`put`), `generateNew` (pour `HashMap`/`TreeMap`, via un `switch` sur le nom) | M4 |
 
 `generateMemberCall` (M2) lit le type du receveur dans `TypeInfo` et délègue à `generateListSetCall` (M3)
-ou `generateMapCall` (M4). **Les imports ne génèrent aucune ligne Python** : les collections sont des types
+ou `generateMapCall` (M4) pour les appels qui ont une valeur. `generateExprStatement` (M2) fait de même pour
+les instructions `add` et `put` : `generateListSetStatement` (M3) ou `generateMapStatement` (M4), qui écrivent
+leur ligne eux-mêmes avec `line(...)`. **Les imports ne génèrent aucune ligne Python** : les collections sont des types
 natifs de Python.
 
 ## 7. Les codes d'erreur (`Diagnostics.Code`) : Membre 1, dans la PR 0
@@ -171,7 +191,7 @@ On réutilise `SYNTAX_ERROR`, `MISSING_BRACE`, `UNSUPPORTED_FEATURE`, `DUPLICATE
 
 | Sujet | Décision |
 |---|---|
-| Classe | `class A(Agent):` avec `from sarl_runtime import Agent` en tête (décision du groupe, niveau 1) |
+| Classe | `class A(Agent):` avec `from sarl_runtime import Agent` en tête (**proposée** par la PR `fix-decisions-groupe` : à confirmer par le groupe avant la PR 0 ; c'est alors la seule ligne `import` du Python généré) |
 | Champs | **dans `__init__`**, jamais au niveau de la classe : sinon une liste serait partagée entre tous les agents. `def __init__(self, runtime=None):` puis `super().__init__(runtime)` puis `self.x = ...`. Un agent sans champ n'a pas de `__init__`. `var x : int` sans valeur reçoit `0` ; `double` : `0.0` ; `boolean` : `False` ; les autres types : `None` |
 | Noms | champ → `self.x` ; paramètre ou variable locale → `x` ; méthode de l'agent → `self.f(...)` ; un nom qui est un mot réservé Python (`from`, `in`, `is`, `pass`, `lambda`...) reçoit un `_` à la fin (`from_`) |
 | Opérateurs | `&&` → `and`, `\|\|` → `or`, `!` → `not`, `true` → `True` |
@@ -179,7 +199,7 @@ On réutilise `SYNTAX_ERROR`, `MISSING_BRACE`, `UNSUPPORTED_FEATURE`, `DUPLICATE
 | Division | `int / int` → `int(a / b)` (SARL tronque vers zéro) ; `double` : `a / b` |
 | Collections | `#[a, b]` → `[a, b]` ; `#{a, b}` → `{a, b}` ; **ensemble vide : `set()`** (jamais `{}`, qui est un dictionnaire) ; `#{k -> v}` → `{k: v}` ; `new ArrayList<T>()` → `[]` ; `new HashSet<T>()` → `set()` ; `new HashMap<K,V>()` et `new TreeMap<K,V>()` → `{}` |
 | Opérations | liste : `add` → `x.append(e)`, `get(i)` → `x[i]`, `size()` → `len(x)`, `contains(e)` → `(e in x)` ; ensemble : `add` → `x.add(e)`, `contains`, `size` ; map : `put(k, v)` → `m[k] = v`, `get(k)` → `m.get(k)`, `size()` → `len(m)`, `containsKey(k)` → `(k in m)` |
-| `add` et `put` | de type `void` : ils ne s'utilisent que comme instruction (en SARL `put` renvoie l'ancienne valeur, `add` renvoie un booléen : on refuse de les traduire comme valeur) |
+| `add` et `put` | de type `void` : ils ne s'utilisent que comme instruction (en SARL `put` renvoie l'ancienne valeur, `add` renvoie un booléen : on refuse de les traduire comme valeur, `UNSUPPORTED_FEATURE`). **Ils sont générés comme des instructions** (`generateListSetStatement`, `generateMapStatement`), jamais par `expression(...)`, qui ne produit que des expressions Python |
 | `TreeMap` | **comportement très restreint** : seules les 4 opérations qui ne dépendent pas de l'ordre (`put`, `get`, `size`, `containsKey`) sont acceptées. Comme `for` n'existe pas dans le sous-ensemble et que `info(...)` refuse les collections, l'ordre trié n'est jamais observable : traduire par un `dict` est donc fidèle. Toute autre opération donne `UNSUPPORTED_FEATURE` |
 | `info(...)` | refuse une collection en argument (l'affichage diffère entre SARL et Python) |
 | Concaténation | `String + String` seulement (`"n=" + 1` donne `TYPE_MISMATCH`) |
@@ -244,9 +264,23 @@ class Counter(Agent):
 
 ## 10. Déroulement et validation
 
-1. **PR 0** : le Membre 1 l'écrit à partir de ce document (tokens, nœuds, types, `TypeInfo`, squelettes,
-   codes d'erreur, aiguillages). Elle doit **compiler** (`mvn compile`) et **ne casser aucun test** du
-   niveau 1. Les trois autres la relisent et la valident. Personne ne code avant la fusion.
+1. **PR 0, répartie par fichier** : personne ne la porte seul, et deux personnes ne modifient jamais le
+   même fichier.
+
+   | PR | Qui | Fichiers | Durée |
+   |---|---|---|---|
+   | 0a | Membre 1 | `SyntaxTree.java` (tous les nœuds, `imports`), `SymbolTable.java`, `TypeInfo.java`, `Types.java`, `Diagnostics.java` | 1 h 30 |
+   | 0b | Membre 4 | `Tag.java`, `Lexer.java` (mots réservés, symboles, `getOperator`), `runtime/check_generated.py` | 1 h 30 à 2 h |
+   | 0c | Membre 2 | `Parser.java` (aiguillages, ensembles de synchronisation, squelettes `notImplemented`) | 1 h 30 |
+   | 0d | Membre 3 | `Semantic.java`, `PythonGenerator.java`, `Transpiler.java` (parcours, `TypeInfo`, squelettes) | 1 h 30 à 2 h |
+   | 0e | Membre 1 | `GRAMMAIRE.md`, `TABLE_LL1.md`, `NIVEAU2_LIMITES.md` (après 0a à 0d) | 1 h |
+
+   Les PR 0a à 0d s'**écrivent en parallèle** (chacun connaît les noms grâce à ce document) ; seule la
+   **fusion** est ordonnée : 0a d'abord (les autres en ont besoin pour compiler), puis 0b, puis 0c et 0d.
+   Chaque PR doit **compiler** et **ne casser aucun test** du niveau 1 ; les autres la relisent.
+   Estimation réaliste : une demi-journée à quatre. Dès que 0a est fusionnée, chacun peut tester avec des
+   **arbres construits à la main** (par exemple `new SyntaxTree.IfStatement(...)` passé au `Semantic` puis au
+   `PythonGenerator`), sans attendre le Parser des autres.
 2. **Avant la PR 0** : fusionner dans `main` les branches du niveau 1 (`membre3-initialize` et
    `fix-decisions-groupe`), pour partir d'un `main` à jour.
 3. **Ensuite** : chacun ouvre sa branche depuis le `main` de la PR 0, remplit seulement ses méthodes,

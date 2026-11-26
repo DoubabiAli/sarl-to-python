@@ -32,7 +32,7 @@ class A(Agent):
         return r
 ```
 
-Temps estimé : PR 0 environ 2 h, puis 6 à 8 h pour ta partie (lecture comprise).
+Temps estimé : ta part de la PR 0 (0a) environ 1 h 30, puis 6 à 8 h pour ta partie (lecture comprise).
 
 **Lis d'abord `docs/membres/NIVEAU2_CONTRAT.md`** : il définit le sous-ensemble SARL, les nœuds, les noms
 des méthodes et les règles du Python généré. Cette fiche ne le répète pas.
@@ -45,11 +45,13 @@ des méthodes et les règles du Python généré. Cette fiche ne le répète pas
 2. `mvn test` : tout est vert. (Dans le terminal, `JAVA_HOME` doit pointer sur le JDK 25.)
 3. Branche de la PR 0 : `git checkout -b pr0-contrat-niveau2`.
 
-## Étape 1 : la PR 0 (2 h) : le plus important de toute la semaine
+## Étape 1 : ta part de la PR 0 (1 h 30)
 
-Tant que la PR 0 n'est pas fusionnée, les trois autres ne peuvent pas commencer. **Elle ne contient
-aucune logique** : seulement des définitions et des méthodes `notImplemented`. Elle doit compiler et ne
-casser aucun test. Dans cet ordre, en lançant `mvn test` après chaque point :
+La PR 0 est répartie **par fichier** entre les quatre membres (contrat, §10). Elle ne contient **aucune
+logique** : seulement des définitions et des méthodes `notImplemented`. **Ta part est la PR 0a**
+(lignes 1, 4, 5 et 6 du tableau, plus `Types.java`), à fusionner **en premier**, car les autres en ont besoin
+pour compiler. Les autres lignes sont écrites par d'autres membres (indiqué sous le tableau) : tu les lis
+pour savoir ce qui existera. Chaque PR compile et ne casse aucun test. Lance `mvn test` après chaque point :
 
 | # | Fichier | À faire |
 |---|---|---|
@@ -66,7 +68,15 @@ casser aucun test. Dans cet ordre, en lançant `mvn test` après chaque point :
 | 11 | `runtime/check_generated.py` | le script `ast.parse` (voir plus bas) |
 | 12 | `docs/` | `GRAMMAIRE.md` (les nouvelles règles) et `TABLE_LL1.md` (FIRST et FOLLOW) |
 
-Pour le point 8, voici le principe pour `parseStatement` (le début existe déjà) :
+**Qui fait quoi** : toi, 0a (lignes 1, 4, 5, 6 et `Types.java`) puis 0e (ligne 12) ; Membre 4, 0b (lignes 2, 3,
+11) ; Membre 2, 0c (ligne 8) ; Membre 3, 0d (lignes 7, 9, 10).
+
+`Types.java` : `isAssignable(cible, source)` avec **toutes** les règles du contrat, §5 (même type,
+`int` vers `double`, **types boîtes** `int`/`Integer`, `double`/`Double`, `boolean`/`Boolean` via `unbox`,
+`ArrayList` comme `List`, etc., et les types littéraux **immuables**), `isNumeric`, `isBoolean`, et `VOID`.
+Les trois autres s'en servent : écris-la tôt et dis-leur.
+
+Pour le point 8 (écrit par le Membre 2), voici le principe pour `parseStatement` (le début existe déjà) :
 
 ```java
 private SyntaxTree.Statement parseStatement() {
@@ -199,8 +209,19 @@ void checkVarDecl(SyntaxTree.VarDecl v, SymbolTable scope) {
 
 Indices :
 - `kind` vaut `"field"` si on est dans la passe A de `declareMembers`, `"local"` sinon, `"param"` pour un paramètre.
-- Écris une petite classe `Types` (nouveau fichier) avec `isAssignable(cible, source)` (règles du contrat, §5),
-  `isNumeric`, `isBoolean`, et `VOID`. **Les trois autres s'en servent** : écris-la tôt et dis-leur.
+- La classe `Types` est celle de la PR 0a : `isAssignable` accepte `Integer` pour `int` (types boîtes), refuse
+  d'affecter un littéral immuable à un type `List`/`Set`/`Map` déclaré (`UNSUPPORTED_FEATURE`, « littéral
+  immuable »), et ne confond pas `TYPE_MISMATCH` (types incompatibles) avec `UNSUPPORTED_FEATURE`
+  (construction valide en SARL qu'on ne traduit pas).
+- **Portées Python** : un `if` ou un `while` ne crée pas de portée en Python. Dans `checkVarDecl`, cherche
+  le nom dans **toutes les portées de la méthode** (pas seulement `getLocal`) : s'il désigne déjà un
+  paramètre ou une variable locale, `DUPLICATE_DECLARATION` (« déjà déclaré dans une portée englobante »).
+  Seul un **champ** peut être masqué par un local.
+- `requireValue(type, nœud)` : si `type` est `VOID`, signale `UNSUPPORTED_FEATURE` (« valeur de retour de
+  add/put non supportée »). Appelle-la dans `checkVarDecl` et `checkAssign`, et donne-la aux autres.
+- `alwaysReturns(corps)` : vrai si la dernière instruction est un `ReturnStatement`, ou un `if` **avec** `else`
+  dont **les deux** corps retournent (récursion). `checkMethod` signale `UNSUPPORTED_FEATURE` si la méthode
+  déclare un type de retour et que `alwaysReturns` est faux (sinon le Python renverrait `None`).
 - `checkMethod` : ouvre une portée (`scope.openContext()`), y déclare les paramètres (non mutables), met
   `currentReturnType` (le type de retour, ou `null`), appelle `checkBlock(corps, portée)`, puis remet
   `currentReturnType` à `null` et ferme la portée.
@@ -247,10 +268,15 @@ private void generateConstructor(SyntaxTree.AgentNode agent) {
 | local qui cache un champ | `agent A { var x : int = 1 def f() { var x = 2 } }` | dans `f`, `x = 2` sans `self.` |
 | doublon | `agent A { def f() { var a = 1 var a = 2 } }` | échec, `DUPLICATE_DECLARATION` |
 | `val` réaffecté | `agent A { def f() { val a = 1 a = 2 } }` | échec, `IMMUTABLE_ASSIGNMENT` (après le Membre 2 pour `a = 2`) |
-| méthode | `agent A { def f(a : int, b : int) : int { } }` | `def f(self, a, b):` + `pass` |
+| méthode | `agent A { def f(a : int, b : int) : int { return a } }` | `def f(self, a, b):` puis `return a` |
 | paramètre visible seulement dans sa méthode | une méthode qui utilise `a` en dehors | échec, `UNKNOWN_SYMBOL` |
 | mot réservé Python | `agent A { var from : int = 1 }` | `self.from_ = 1` |
 | inférence | `agent A { def f() { var a = 1 a = "x" } }` | échec, `TYPE_MISMATCH` |
+| types boîtes | `agent A { def f() { var n : int = 1 var b : Integer = n } }` | succès |
+| masquer une variable locale | `agent A { def f() { var a = 1 if (true) { var a = 2 } } }` | échec, `DUPLICATE_DECLARATION` |
+| méthode sans `return` | `agent A { def f() : int { } }` | échec, `UNSUPPORTED_FEATURE` |
+| `return` sur tous les chemins | `def f(b : boolean) : int { if (b) { return 1 } else { return 2 } }` | succès |
+| littéral immuable | `agent A { def f() { var l : List<Integer> = #[1] } }` | échec, `UNSUPPORTED_FEATURE` |
 
 Les tests qui ont besoin de `a = 2` ou d'opérateurs attendent le Membre 2 ; écris-les quand sa PR est
 fusionnée (tu peux les laisser `@Disabled` d'ici là).
@@ -267,7 +293,7 @@ fusionnée (tu peux les laisser `@Disabled` d'ici là).
 
 - [ ] PR 0 fusionnée, **avant** que les autres commencent
 - [ ] `parseType`, `parseVarDecl`, `parseAssignRest`, `parseMethod` écrits
-- [ ] `resolveName`, `declareMembers`, `checkMethod`, `checkVarDecl`, `checkAssign` écrits ; `Types` partagée
+- [ ] `resolveName`, `declareMembers`, `checkMethod`, `checkVarDecl`, `checkAssign`, `requireValue`, `alwaysReturns` écrits ; `Types` partagée (types boîtes, littéraux immuables)
 - [ ] champs dans `__init__`, champ/local bien distingués, `pyName`
 - [ ] tests de `VariableMethodTest` verts ; `mvn test` entièrement vert
 - [ ] `runtime/check_generated.py` passe sur les exemples du sous-ensemble

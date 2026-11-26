@@ -29,7 +29,7 @@ Temps estimé : 6 à 8 h, lecture comprise. Ta partie est la plus **utilisée** 
 
 ## Étape 0 : préparer ton poste (15 min)
 
-1. La PR 0 du Membre 1 doit être fusionnée. `git checkout main`, `git pull`.
+1. La PR 0 doit être fusionnée (0a à 0d, contrat §10). Ta part est la **PR 0c** : le `Parser.java` du squelette (aiguillages de `parseStatement`, `parseMember`, `parse()` et `parsePrimary`, ensembles de synchronisation mis à jour, méthodes `notImplemented`), environ 1 h 30. `git checkout main`, `git pull`.
 2. `mvn test` : tout est vert (le terminal doit utiliser le JDK 25).
 3. `git checkout -b membre2-expressions`.
 4. **Niveau 1 restant** : `uses Lifecycle` et `spawn` (`docs/membres/README_MEMBRE_2.md`). Si le groupe te les
@@ -149,6 +149,9 @@ règles (contrat, §5) :
 `Types.isNumeric` du Membre 1, **ne les réécris pas**. Si un opérande est de type inconnu (`null`, erreur
 déjà signalée), ne signale pas une deuxième erreur en cascade.
 
+**Chaque fois qu'une valeur est attendue** (opérande, argument, `return`, argument de `info`), appelle
+`requireValue(type, nœud)` (Membre 1) : un `add` ou un `put` utilisé comme valeur donne `UNSUPPORTED_FEATURE`.
+
 Les autres méthodes :
 - `checkExprStatement(ExprStatement, scope)` : appelle `typeOf` sur l'expression.
 - `checkReturn(ReturnStatement, scope)` : compare avec `currentReturnType` (rempli par le Membre 1) : `return`
@@ -175,10 +178,17 @@ Les autres méthodes :
   `a < b < c` veut dire autre chose) ;
 - l'opérande de `not` ou de `-` unaire est parenthésé s'il n'est pas un atome (littéral, nom, appel).
 
-`generateExprStatement` : `line(expression(e.expression()))`. `generateReturn` : `line("return " + ...)` ou
-`line("return")`. `generateMemberCall` : lis le type du receveur dans `TypeInfo`. Si c'est une liste ou un
-ensemble, appelle `generateListSetCall(call)` (Membre 3) ; si c'est une map, `generateMapCall(call)`
-(Membre 4).
+`generateExprStatement` : si l'expression est un `MemberCall` dont la méthode est `add` ou `put`, **ce n'est pas
+une expression Python** (`m[k] = v` est une instruction) : lis le type du receveur dans `TypeInfo` et délègue à
+`generateListSetStatement(call)` (Membre 3) ou `generateMapStatement(call)` (Membre 4), qui écrivent leur ligne
+eux-mêmes avec `line(...)`. Pour tout autre appel : `line(expression(...))`. `expression(...)` ne doit **jamais**
+produire `m[k] = v` : s'il rencontre `add` ou `put`, c'est une erreur interne (`IllegalStateException`), car le
+Semantic les a déjà refusés comme valeur.
+
+`generateReturn` : `line("return " + ...)` ou `line("return")`. `generateMemberCall` (pour les appels qui ont une
+valeur : `get`, `size`, `contains`, `containsKey`) : lis le type du receveur dans `TypeInfo`. Si c'est une liste
+ou un ensemble (littéraux immuables compris), appelle `generateListSetCall(call)` (Membre 3) ; si c'est une
+map, `generateMapCall(call)` (Membre 4).
 
 ## Étape 6 : travailler sans bloquer les autres
 

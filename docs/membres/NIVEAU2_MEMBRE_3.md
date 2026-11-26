@@ -47,7 +47,7 @@ dans la PR 0 par le Membre 1. Tu ne modifies pas `SyntaxTree.java`.
 
 ## Étape 0 : préparer ton poste (15 min)
 
-1. La PR 0 doit être fusionnée. `git checkout main`, `git pull`.
+1. La PR 0 doit être fusionnée (0a à 0d, contrat §10). Ta part est la **PR 0d** : `Semantic.java` (parcours en deux passes, `checkBlock`, `checkStatement`, `typeOf` minimal, squelettes), `PythonGenerator.java` (cas des nouveaux nœuds, squelettes) et `Transpiler.java` (le `TypeInfo` passé au `Semantic` et au `PythonGenerator`), environ 1 h 30 à 2 h. C'est le travail qui t'apprend le mieux comment les trois étapes s'emboîtent. `git checkout main`, `git pull`.
 2. `mvn test` : tout est vert. Dans le terminal Git Bash, avant Maven :
    `export JAVA_HOME="$HOME/.jdks/openjdk-25.0.2"` puis `export PATH="$JAVA_HOME/bin:$PATH"`.
 3. `git checkout -b membre3-controle-collections`.
@@ -73,7 +73,7 @@ Pour vérifier que tu as compris, réponds à voix haute :
 |---|---|---|
 | 1 | `Parser.java` | `parseIf`, `parseWhile`, `parseCollectionLiteral`, `parseNew` |
 | 2 | `Semantic.java` | `checkIf`, `checkWhile`, `typeOfCollectionLiteral`, `typeOfNew` (pour `ArrayList`/`HashSet`), `typeOfListSetCall` |
-| 3 | `PythonGenerator.java` | `generateIf`, `generateWhile`, `generateListLiteral`, `generateSetLiteral`, `generateNew` (pour `ArrayList`/`HashSet`), `generateListSetCall` |
+| 3 | `PythonGenerator.java` | `generateIf`, `generateWhile`, `generateListLiteral`, `generateSetLiteral`, `generateNew` (pour `ArrayList`/`HashSet`), `generateListSetCall`, `generateListSetStatement` |
 | 4 | `ControlCollectionTest.java` | les tests de l'étape 7 |
 
 Les conditions (`i < 3`) et les éléments (`1, 2`) sont lus par **`parseExpression()` du Membre 2**. Tu ne
@@ -171,8 +171,9 @@ void checkIf(SyntaxTree.IfStatement node, SymbolTable scope) {
 `checkWhile` : pareil, avec le corps.
 
 **Types des collections** (règles de `typeOfCollectionLiteral`, `typeOfNew`) :
-- `#[a, b]` → `List<T>` où `T` est le type du premier élément ; les autres éléments doivent être
-  compatibles (`Types.isAssignable`), sinon `TYPE_MISMATCH`. `#{a, b}` → `Set<T>` de la même façon.
+- `#[a, b]` → `ImmutableList<T>` où `T` est le type du premier élément ; les autres éléments doivent être
+  compatibles (`Types.isAssignable`, qui gère `int`/`Integer`), sinon `TYPE_MISMATCH`. `#{a, b}` →
+  `ImmutableSet<T>` de la même façon. **Les littéraux SARL sont immuables** : voir le contrat, §5.
 - `new ArrayList<T>()` ou `new HashSet<T>()` : un seul argument de type, **aucun argument** au constructeur,
   sinon `UNSUPPORTED_FEATURE`. Le type du résultat est le `TypeRef` du `new`.
 - Dans `typeOfNew`, si le nom est `HashMap` ou `TreeMap`, **laisse le Membre 4** vérifier (il écrit sa
@@ -198,7 +199,10 @@ d'arguments et leurs types, et retourne le type du résultat. Table à respecter
 - Mauvais nombre d'arguments : `WRONG_ARGUMENT_COUNT`. Argument de mauvais type (ajouter un `String` à une
   `List<Integer>`) : `TYPE_MISMATCH`.
 - `add` retourne `void` ici (en SARL il retourne un booléen) : on ne l'utilise que comme instruction.
-  `var b = liste.add(1)` donne donc `TYPE_MISMATCH` automatiquement (grâce à `Types.VOID`).
+  `var b = liste.add(1)` donne `UNSUPPORTED_FEATURE` : c'est une construction valide en SARL que notre
+  sous-ensemble ne sait pas traduire (`requireValue`, écrite par le Membre 1).
+- Un `ImmutableList` ou un `ImmutableSet` (un littéral) se lit comme une `List` ou un `Set` (`get`, `size`,
+  `contains`), mais `add` est refusé : `UNSUPPORTED_FEATURE` (« littéral immuable »).
 
 ## Étape 5 : écrire le Générateur (1 h)
 
@@ -233,7 +237,7 @@ Collections :
 | `x.contains(e)` | `(e in x)` |
 | `ensemble.add(e)` | `ensemble.add(e)` |
 
-`generateListSetCall(MemberCall call)` est appelée par le Membre 2 : tu lis le type du receveur avec
+`generateListSetCall(MemberCall call)` (valeurs : `get`, `size`, `contains`) et `generateListSetStatement(MemberCall call)` (l'instruction `add`, qui écrit sa ligne avec `line(...)`) sont appelées par le Membre 2 : tu lis le type du receveur avec
 `info.typeOf(call.receiver())` pour savoir si c'est une liste ou un ensemble (`append` contre `add`), puis tu
 écris le texte Python. Tu écris le receveur avec `expression(call.receiver())` et les arguments de la même
 façon. **Tu ne réécris pas** la traduction des expressions : tu la **réutilises**.
@@ -264,7 +268,9 @@ que `indent++` / `indent--` encadrent bien chaque corps.
 | `add` sur liste / sur ensemble | `l.add(1)` / `s.add(1)` | `l.append(1)` / `s.add(1)` |
 | opération réservée à List | `s.get(0)` sur un `Set` | échec, `UNSUPPORTED_FEATURE` |
 | mauvais type d'élément | `var l = new ArrayList<Integer>() l.add("x")` | échec, `TYPE_MISMATCH` |
-| `add` utilisé comme valeur | `var b = l.add(1)` | échec, `TYPE_MISMATCH` |
+| `add` utilisé comme valeur | `var b = l.add(1)` | échec, `UNSUPPORTED_FEATURE` |
+| `add` sur un littéral | `var l = #[1] l.add(2)` | échec, `UNSUPPORTED_FEATURE` (littéral immuable) |
+| types boîtes | `var l = new ArrayList<Integer>() var n : int = 1 l.add(n)` | succès |
 | littéral vide | `var l = #[]` | échec, `UNSUPPORTED_FEATURE` |
 
 Pour tester le Python complet des corps, utilise `assertTrue(r.python().contains("..."))` comme dans
@@ -280,7 +286,7 @@ puis une Pull Request relue par un autre membre avant fusion.
 
 - [ ] `parseIf`, `parseWhile`, `parseCollectionLiteral`, `parseNew` écrits
 - [ ] `checkIf`, `checkWhile`, `typeOfCollectionLiteral`, `typeOfNew`, `typeOfListSetCall` écrits
-- [ ] `generateIf` (avec `elif`), `generateWhile`, collections, `generateListSetCall` écrits
+- [ ] `generateIf` (avec `elif`), `generateWhile`, collections, `generateListSetCall`, `generateListSetStatement` écrits
 - [ ] **`set()` pour l'ensemble vide**, jamais `{}`
 - [ ] les tests de `ControlCollectionTest` verts ; `mvn test` entièrement vert
 - [ ] tu n'as pas modifié `SyntaxTree.java`, ni les méthodes des autres membres
